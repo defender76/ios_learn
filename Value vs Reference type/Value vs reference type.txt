@@ -1,0 +1,122 @@
+Value vs reference type 
+ Что за покемон?
+reference type -  экземпляр указатель на место в памяти.  class, closure, function
+ a = 2
+a = MyClass()
+b = a
+
+b.myProperty = 1  print(a.myProperty) будет 1
+
+Value тип. Каждный экземпляр это копия с данными 
+обычно это struct, enum, tuple, array, dict, set
+
+не могут два экземпляра структуры с одними и теме же данными храниться в одной и той же ячейке памяти. Точнее могут, но об этом позже.   Зачем? ни кто не поменяет копию ваших данных без вашего ведома, например как в многопоточном приложении
+
+class может быть неизменяемый, но из коробки он мутабельный и например потомки могут быть мутабельный, а родитель нет
+
+Today, you can write an immutable class in Swift by using only immutable stored properties and avoiding exposing any APIs that can modify state. In fact, many common Cocoa classes, such as NSURL, are designed as immutable classes 
+Пример немутабельного класса
+зачем NSURL это неизменяемый класс? Почему тогда не структура?
+потому что NSObject делает runtime штуки а NSURL это objc (https://stevenpcurtis.medium.com/why-do-we-ever-need-to-inherit-from-nsobject-b4ec111a58c7)
+
+NS_SWIFT_SENDABLE // Immutable with no mutable subclasses. Internal resource value cache is protected by locks and values must be Sendable
+@interface NSURL: NSObject <NSSecureCoding, NSCopying>
+{
+    NSString *_urlString;
+    NSURL *_baseURL;
+    void *_clients;
+    void *_reserved;
+}
+ Когда?  value type
+сравнение экземпляров имеет смысл
+копия должна быть независимой
+данные будут использоваться между потоками
+
+reference type
+если сравнение по ссылке имеет смысла
+если хочешь создать мутабельный стейт
+
+https://developer.apple.com/swift/blog/?id=10
+А все потому что:
+онсновная цель - безопасность https://www.swift.org/about/
+JFYI
+для ссылочных типов если let то ты не можешь поменять инстанс, но можешь изменить проперти в инстансе
+
+какие value а какие reference?  value struct, enum, tuple, array, set, dictionary reference функции, замыкания, классы  
+где хранятся value, а где reference? 
+в стеке и куче
+
+Stack is used for static memory allocation and Heap for dynamic memory allocation, both stored in the computer’s RAM .
+https://abhimuralidharan.medium.com/difference-between-value-type-and-a-reference-type-in-ios-swift-18cb5145ad7a
+как происходит выделение памяти под  value а как под reference?
+
+Выделение этой памяти происходит во время компиляции программы;
+Размер памяти в стеке должен быть известен на момент компиляции.  У нас есть механизм MemoryLayout
+Каждый поток имеет доступ к своему собственному стеку
+
+Источник: https://ios-interview.ru/memory-management-in-swift/
+ reference type хранит динамические данные. Берет из системы какую-то память, а потом может попросить еще. В ран тайме
+
+struct myStruct{
+	var a = 1 
+}
+
+func myFunc( inout a: Int) {
+ a = 5
+}
+var mystruct = myStruct()
+myFunc(a: mystruct.a)
+print(mystruct.a)
+
+inout: по умолчанию структура передается по значению. с inout можешь передавать по ссылке. классы всегда передаются по ссылке
+
+struct myStruct{
+    var a = 1
+}
+
+func myFunc( a: inout Int) {
+ a = 5
+}
+var mystruct = myStruct()
+myFunc(a: &mystruct.a)
+print(mystruct.a)
+
+mutating если хочешь поменять значение в структуре уже после инициализации, то функция должна стать мутабельной.  Просто экземпляр структуры не может менять значение проперти без mutable 
+
+struct myStruct{
+    var a = 1
+    
+    mutating func changeA(newValue: Int) {
+        a = newValue
+    }
+}
+
+var mystruct = myStruct()
+mystruct.changeA(newValue: 5)
+print(mystruct.a)
+ Смешивание:
+value type хранит reference type
+структура хранит ссылку на ячейку памяти в куче
+ класс хранит структуру в куче
+
+Оптимизация
+Компилятор Swift может продвигать ссылочные типы для размещения в стеке, когда их размер фиксирован или время жизни может быть предсказано. Эта оптимизация происходит на этапе генерации SIL.
+
+
+Если структуры или перечисления содержат ссылки, они будут платить накладные расходы на подсчет ссылок пропорционально количеству ссылок, которые они содержа
+https://habr.com/ru/articles/489360/#
+
+На будущее про memorylayout https://medium.com/hh-ru/память-в-swift-от-0-до-1-a7008104653a
+
+var b = 2
+var c = 3
+a =  { 
+	x in -> Int
+	return b + c + x
+}
+
+print(a(10))
+
+
+куча и стек
+https://habr.com/ru/articles/489360/#
